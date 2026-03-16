@@ -33,7 +33,16 @@ export const DEFAULTS = {
             nestId: 'powers',
             id: 'powers',
             name: 'T20.Poderes',
-            groups: [{ nestId: 'powers_powers', id: 'powers', name: 'T20.Poderes', type: 'system' }]
+            groups: [
+                { nestId: 'powers_class', id: 'powers_class', name: 'Classe', type: 'system' },
+                { nestId: 'powers_granted', id: 'powers_granted', name: 'Concedido', type: 'system' },
+                { nestId: 'powers_destiny', id: 'powers_destiny', name: 'Destino', type: 'system' },
+                { nestId: 'powers_distinction', id: 'powers_distinction', name: 'Distinção', type: 'system' },
+                { nestId: 'powers_racial', id: 'powers_racial', name: 'Racial', type: 'system' },
+                { nestId: 'powers_general', id: 'powers_general', name: 'Geral', type: 'system' },
+                { nestId: 'powers_ability', id: 'powers_ability', name: 'Ability', type: 'system' },
+                { nestId: 'powers_other', id: 'powers_other', name: 'Outros', type: 'system' }
+            ]
         },
         {
             nestId: 'conditions',
@@ -50,7 +59,14 @@ export const DEFAULTS = {
         { id: 'consumables', name: 'T20.Consumiveis', type: 'system' },
         { id: 'treasures', name: 'T20.Tesouros', type: 'system' },
         { id: 'spells', name: 'T20.Magias', type: 'system' },
-        { id: 'powers', name: 'T20.Poderes', type: 'system' },
+        { id: 'powers_class', name: 'Classe', type: 'system' },
+        { id: 'powers_granted', name: 'Concedido', type: 'system' },
+        { id: 'powers_destiny', name: 'Destino', type: 'system' },
+        { id: 'powers_distinction', name: 'Distinção', type: 'system' },
+        { id: 'powers_racial', name: 'Racial', type: 'system' },
+        { id: 'powers_general', name: 'Geral', type: 'system' },
+        { id: 'powers_ability', name: 'Ability', type: 'system' },
+        { id: 'powers_other', name: 'Outros', type: 'system' },
         { id: 'conditions', name: 'T20.Condicoes', type: 'system' }
     ]
 };

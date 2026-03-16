@@ -1,6 +1,16 @@
 import { getSystemManager } from './system-manager.js';
 import { MODULE, Logger } from './constants.js';
 
+let pendingHudRefresh = null;
+
+function requestHudRefresh() {
+    if (pendingHudRefresh) clearTimeout(pendingHudRefresh);
+    pendingHudRefresh = setTimeout(() => {
+        pendingHudRefresh = null;
+        Hooks.callAll('forceUpdateTokenActionHud');
+    }, 0);
+}
+
 Hooks.on('tokenActionHudCoreApiReady', async (coreModule) => {
     Logger.info("Token Action HUD Core API is ready. Initializing T20 module...");
     try {
@@ -14,4 +24,8 @@ Hooks.on('tokenActionHudCoreApiReady', async (coreModule) => {
     } catch (e) {
         Logger.error("Failed to initialize T20 module", e);
     }
+});
+
+Hooks.on('controlToken', () => {
+    requestHudRefresh();
 });

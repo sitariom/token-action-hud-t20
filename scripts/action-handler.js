@@ -9,21 +9,79 @@ export function getActionHandler(coreModule) {
                 if (!token) return;
                 const actor = this.actor;
                 if (!actor) return;
+                const requestedGroupIds = this._normalizeRequestedGroupIds(groupIds);
+                const isMultiTokenSelection = this._isMultiTokenSelection();
 
                 if (!['character', 'npc', 'threat'].includes(actor.type)) {
                     Logger.info(`Actor type ${actor.type} not supported or no actions defined.`);
                     return;
                 }
 
-                this._buildAttributes(actor);
-                this._buildSkills(actor);
-                this._buildItems(actor);
-                this._buildConditions(actor);
+                if (this._shouldBuildGroup(requestedGroupIds, ['attributes'])) this._buildAttributes(actor);
+                if (this._shouldBuildGroup(requestedGroupIds, ['skills'])) this._buildSkills(actor);
+
+                if (isMultiTokenSelection) {
+                    Logger.info("Multiple tokens selected. Building only attributes and skills.");
+                    return;
+                }
+
+                if (this._shouldBuildGroup(requestedGroupIds, [
+                    'inventory',
+                    'weapons',
+                    'equipment',
+                    'consumables',
+                    'treasures',
+                    'spells',
+                    'powers',
+                    'powers_class',
+                    'powers_granted',
+                    'powers_destiny',
+                    'powers_distinction',
+                    'powers_racial',
+                    'powers_general',
+                    'powers_ability',
+                    'powers_other'
+                ])) {
+                    this._buildItems(actor);
+                }
+                if (this._shouldBuildGroup(requestedGroupIds, ['conditions'])) this._buildConditions(actor);
 
                 Logger.info("System actions built successfully.");
             } catch (e) {
                 Logger.error("Error building system actions", e);
             }
+        }
+
+        _isMultiTokenSelection() {
+            const selectedTokens = Array.isArray(this.tokens) && this.tokens.length
+                ? this.tokens
+                : canvas?.tokens?.controlled ?? [];
+            return selectedTokens.length > 1;
+        }
+
+        _normalizeRequestedGroupIds(groupIds) {
+            if (!Array.isArray(groupIds) || !groupIds.length) return null;
+            const normalized = new Set();
+
+            for (const groupId of groupIds) {
+                if (!groupId) continue;
+                const value = typeof groupId === 'string'
+                    ? groupId
+                    : String(groupId?.id ?? groupId?.nestId ?? '');
+                if (!value) continue;
+
+                normalized.add(value);
+
+                const segments = value.split('_').filter(Boolean);
+                for (const segment of segments) normalized.add(segment);
+            }
+
+            return normalized.size ? normalized : null;
+        }
+
+        _shouldBuildGroup(requestedGroupIds, acceptedIds) {
+            if (!requestedGroupIds) return true;
+            return acceptedIds.some(id => requestedGroupIds.has(id));
         }
 
         _buildAttributes(actor) {
@@ -87,7 +145,7 @@ export function getActionHandler(coreModule) {
                 this._addActionsToGroup(spells, 'spells', i => this._getSpellAction(i));
 
                 const powers = items.filter(i => i.type === 'poder');
-                this._addActionsToGroup(powers, 'powers', i => this._getPowerAction(i));
+                this._addPowersByType(powers);
             } catch (e) {
                 Logger.error("Error building items", e);
             }
@@ -131,6 +189,32 @@ export function getActionHandler(coreModule) {
 
             const actions = sortedItems.map(item => mapAction(item));
             this.addActions(actions, { id: groupId, type: 'system' });
+        }
+
+        _addPowersByType(powers) {
+            if (!powers.length) return;
+
+            const buckets = {
+                class: [],
+                granted: [],
+                destiny: [],
+                distinction: [],
+                racial: [],
+                general: [],
+                ability: [],
+                other: []
+            };
+
+            for (const power of powers) {
+                const typeKey = this._getPowerTypeKey(power);
+                const bucket = buckets[typeKey] ?? buckets.other;
+                bucket.push(power);
+            }
+
+            const groupOrder = ['class', 'granted', 'destiny', 'distinction', 'racial', 'general', 'ability', 'other'];
+            for (const key of groupOrder) {
+                this._addActionsToGroup(buckets[key], `powers_${key}`, i => this._getPowerAction(i));
+            }
         }
 
         _getItemAction(item) {
@@ -233,6 +317,24 @@ export function getActionHandler(coreModule) {
         _getPowerType(item) {
             const type = item?.system?.tipo ?? item?.system?.categoria ?? item?.type;
             return String(type ?? 'Poder');
+        }
+
+        _getPowerTypeKey(item) {
+            const rawType = this._getPowerType(item);
+            const normalized = String(rawType)
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .trim();
+
+            if (normalized.includes('classe') || normalized === 'class') return 'class';
+            if (normalized.includes('conced') || normalized === 'granted') return 'granted';
+            if (normalized.includes('destino') || normalized === 'destiny') return 'destiny';
+            if (normalized.includes('distinc') || normalized === 'distinction') return 'distinction';
+            if (normalized.includes('racial') || normalized === 'race') return 'racial';
+            if (normalized.includes('geral') || normalized === 'general') return 'general';
+            if (normalized.includes('ability') || normalized.includes('habilidade')) return 'ability';
+            return 'other';
         }
     };
 }
