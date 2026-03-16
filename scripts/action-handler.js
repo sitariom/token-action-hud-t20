@@ -30,10 +30,24 @@ export function getActionHandler(coreModule) {
                 const attributes = actor.system.atributos;
                 if (!attributes) return;
 
+                const attrMap = {
+                    'for': 'Força',
+                    'des': 'Destreza',
+                    'con': 'Constituição',
+                    'int': 'Inteligência',
+                    'sab': 'Sabedoria',
+                    'car': 'Carisma'
+                };
+
                 const actions = Object.entries(attributes).map(([key, attr]) => {
+                    let label = game.i18n.localize(`T20.Atributos.${key}`);
+                    if (label.startsWith("T20.Atributos.")) { 
+                        label = attrMap[key] || key.toUpperCase();
+                    }
+                    
                     return {
                         id: key,
-                        name: game.i18n.localize(`T20.Atributos.${key}`) || key.toUpperCase(),
+                        name: label,
                         encodedValue: ['attribute', key].join('|'),
                         info1: { text: attr.value }
                     };
@@ -51,9 +65,18 @@ export function getActionHandler(coreModule) {
                 if (!skills) return;
 
                 const actions = Object.entries(skills).map(([key, skill]) => {
+                    let label = game.i18n.localize(`T20.Pericias.${key}`);
+                    if (label.startsWith("T20.Pericias.")) {
+                         if (CONFIG.T20?.pericias && CONFIG.T20.pericias[key]) {
+                             label = CONFIG.T20.pericias[key];
+                         } else {
+                             label = key.charAt(0).toUpperCase() + key.slice(1);
+                         }
+                    }
+
                     return {
                         id: key,
-                        name: game.i18n.localize(`T20.Pericias.${key}`) || key,
+                        name: label,
                         encodedValue: ['skill', key].join('|'),
                         info1: { text: skill.total }
                     };
@@ -67,19 +90,22 @@ export function getActionHandler(coreModule) {
 
         _buildItems(actor) {
             try {
-                const weapons = actor.items.filter(i => i.type === 'arma');
+                // Ensure items is an array (V11+ Collection fix)
+                const items = actor.items.contents || Array.from(actor.items);
+                
+                const weapons = items.filter(i => i.type === 'arma');
                 this._addActionsToGroup(weapons, 'weapons');
 
-                const equipment = actor.items.filter(i => i.type === 'equipamento');
+                const equipment = items.filter(i => i.type === 'equipamento');
                 this._addActionsToGroup(equipment, 'equipment');
 
-                const consumables = actor.items.filter(i => i.type === 'consumivel');
+                const consumables = items.filter(i => i.type === 'consumivel');
                 this._addActionsToGroup(consumables, 'consumables');
 
-                const spells = actor.items.filter(i => i.type === 'magia');
+                const spells = items.filter(i => i.type === 'magia');
                 this._addActionsToGroup(spells, 'spells');
 
-                const powers = actor.items.filter(i => i.type === 'poder');
+                const powers = items.filter(i => i.type === 'poder');
                 this._addActionsToGroup(powers, 'powers');
             } catch (e) {
                 Logger.error("Error building items", e);
