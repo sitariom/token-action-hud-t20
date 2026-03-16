@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.1] - 2026-03-16
+### Corrigido
+- Correção crítica na lógica de localização de Atributos e Perícias para evitar nomes indefinidos.
+- Correção na categorização de Magias e Poderes para garantir que itens sejam encontrados e exibidos nos grupos corretos.
+- Fallback manual para nomes de atributos (Força, Destreza, etc.) caso a localização do sistema falhe.
+
 ## [1.4.0] - 2026-03-16
 ### Adicionado
 - Nova categoria **Condições** para gerenciar status effects no token.
