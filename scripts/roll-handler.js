@@ -62,6 +62,21 @@ export function getRollHandler(coreModule) {
                             Logger.error(`Item ${actionId} not found on actor.`);
                         }
                         break;
+                    case 'condition':
+                        // Handle conditions
+                        // Try to find token first
+                        const token = canvas.tokens.get(actor.token?.id) || canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
+                        if (token) {
+                            await token.toggleEffect(actionId);
+                        } else {
+                             // Fallback to actor method if available
+                            if (actor.toggleStatusEffect) {
+                                await actor.toggleStatusEffect(actionId);
+                            } else {
+                                Logger.error("Could not toggle status effect, no token or actor method found.");
+                            }
+                        }
+                        break;
                 }
             } catch (e) {
                 Logger.error("Error executing macro", e);
