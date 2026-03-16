@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2] - 2026-03-16
+### Corrigido
+- Compatibilidade da API de construção de ações (`listName` e IDs únicos) para o Token Action HUD Core mais recente.
+- Acesso seguro ao `.items.contents` do ator para prevenir erros de leitura de Coleções no Foundry V11/V12.
+- Adicionado fallbacks para rolagens de atributos e perícias: Agora o módulo tenta simular o evento nativo da ficha (`_onRoll`) ou usar o método global `game.tormenta20.rollAttribute/Skill` se os métodos locais do ator falharem, evitando "undefined".
+- Tratamento nativo do Foundry para habilitar/desabilitar status effects (condições).
+
 ## [1.4.1] - 2026-03-16
 ### Corrigido
 - Correção crítica na lógica de localização de Atributos e Perícias para evitar nomes indefinidos.
