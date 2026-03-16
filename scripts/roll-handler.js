@@ -12,18 +12,36 @@ export function getRollHandler(coreModule) {
 
                 const actionType = payload[0];
                 const actionId = payload[1];
+                const targetActors = this._getTargetActors(actionType);
 
-                if (!this.actor) {
-                    for (const token of canvas.tokens.controlled) {
-                        const actor = token.actor;
-                        await this._handleMacro(event, actionType, actionId, actor);
-                    }
-                } else {
-                    await this._handleMacro(event, actionType, actionId, this.actor);
-                }
+                await Promise.allSettled(
+                    targetActors.map(actor => this._handleMacro(event, actionType, actionId, actor))
+                );
             } catch (e) {
                 Logger.error("Error handling action event", e);
             }
+        }
+
+        _getTargetActors(actionType) {
+            const supportsMultiRoll = actionType === 'attribute' || actionType === 'skill';
+            if (!supportsMultiRoll) return this.actor ? [this.actor] : [];
+
+            const actorsFromCore = Array.isArray(this.actors) ? this.actors.filter(Boolean) : [];
+            const actorsFromCanvas = (canvas?.tokens?.controlled ?? [])
+                .map(token => token?.actor)
+                .filter(Boolean);
+            const source = actorsFromCore.length ? actorsFromCore : actorsFromCanvas;
+
+            const uniqueActors = [];
+            const seen = new Set();
+            for (const actor of source) {
+                if (seen.has(actor.id)) continue;
+                seen.add(actor.id);
+                uniqueActors.push(actor);
+            }
+
+            if (uniqueActors.length) return uniqueActors;
+            return this.actor ? [this.actor] : [];
         }
 
         async _handleMacro(event, actionType, actionId, actor) {

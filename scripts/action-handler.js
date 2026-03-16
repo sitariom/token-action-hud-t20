@@ -9,6 +9,8 @@ export function getActionHandler(coreModule) {
                 if (!token) return;
                 const actor = this.actor;
                 if (!actor) return;
+                const requestedGroupIds = this._normalizeRequestedGroupIds(groupIds);
+                const isMultiTokenSelection = this._isMultiTokenSelection();
 
                 if (!['character', 'npc', 'threat'].includes(actor.type)) {
                     Logger.info(`Actor type ${actor.type} not supported or no actions defined.`);
@@ -17,13 +19,61 @@ export function getActionHandler(coreModule) {
 
                 this._buildAttributes(actor);
                 this._buildSkills(actor);
-                this._buildItems(actor);
-                this._buildConditions(actor);
+
+                if (isMultiTokenSelection) {
+                    Logger.info("Multiple tokens selected. Building only attributes and skills.");
+                    return;
+                }
+
+                if (this._shouldBuildGroup(requestedGroupIds, [
+                    'inventory',
+                    'weapons',
+                    'equipment',
+                    'consumables',
+                    'treasures',
+                    'spells',
+                    'powers'
+                ])) {
+                    this._buildItems(actor);
+                }
+                if (this._shouldBuildGroup(requestedGroupIds, ['conditions'])) this._buildConditions(actor);
 
                 Logger.info("System actions built successfully.");
             } catch (e) {
                 Logger.error("Error building system actions", e);
             }
+        }
+
+        _isMultiTokenSelection() {
+            const selectedTokens = Array.isArray(this.tokens) && this.tokens.length
+                ? this.tokens
+                : canvas?.tokens?.controlled ?? [];
+            return selectedTokens.length > 1;
+        }
+
+        _normalizeRequestedGroupIds(groupIds) {
+            if (!Array.isArray(groupIds) || !groupIds.length) return null;
+            const normalized = new Set();
+
+            for (const groupId of groupIds) {
+                if (!groupId) continue;
+                const value = typeof groupId === 'string'
+                    ? groupId
+                    : String(groupId?.id ?? groupId?.nestId ?? '');
+                if (!value) continue;
+
+                normalized.add(value);
+
+                const segments = value.split('_').filter(Boolean);
+                for (const segment of segments) normalized.add(segment);
+            }
+
+            return normalized.size ? normalized : null;
+        }
+
+        _shouldBuildGroup(requestedGroupIds, acceptedIds) {
+            if (!requestedGroupIds) return true;
+            return acceptedIds.some(id => requestedGroupIds.has(id));
         }
 
         _buildAttributes(actor) {
