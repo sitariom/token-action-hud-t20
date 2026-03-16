@@ -33,6 +33,12 @@ export const DEFAULTS = {
             id: 'powers',
             name: 'T20.Poderes',
             groups: [{ nestId: 'powers_powers', id: 'powers', name: 'T20.Poderes', type: 'system' }]
+        },
+        {
+            nestId: 'conditions',
+            id: 'conditions',
+            name: 'T20.Condicoes',
+            groups: [{ nestId: 'conditions_conditions', id: 'conditions', name: 'T20.Condicoes', type: 'system' }]
         }
     ],
     groups: [
@@ -42,6 +48,7 @@ export const DEFAULTS = {
         { id: 'equipment', name: 'T20.Equipamento', type: 'system' },
         { id: 'consumables', name: 'T20.Consumiveis', type: 'system' },
         { id: 'spells', name: 'T20.Magias', type: 'system' },
-        { id: 'powers', name: 'T20.Poderes', type: 'system' }
+        { id: 'powers', name: 'T20.Poderes', type: 'system' },
+        { id: 'conditions', name: 'T20.Condicoes', type: 'system' }
     ]
 };

@@ -30,33 +30,39 @@ export function getRollHandler(coreModule) {
             try {
                 switch (actionType) {
                     case 'attribute':
-                        if (actor.setupAtributo) {
-                            actor.setupAtributo(actionId);
-                        } else if (actor.rollAtributo) {
-                            actor.rollAtributo(actionId);
-                        } else {
+                        if (!await this._executeFirstAvailable(actor, ['rollAtributo', 'setupAtributo'], [actionId])) {
+                            if (game.tormenta20?.rollAttribute) {
+                                await game.tormenta20.rollAttribute(actor, actionId);
+                            } else {
+                                ui.notifications?.warn(`Não foi possível rolar o atributo ${actionId}.`);
+                            }
                             Logger.error("Could not find attribute roll method on actor.");
                         }
                         break;
                     case 'skill':
-                        if (actor.setupPericia) {
-                            actor.setupPericia(actionId);
-                        } else if (actor.rollPericia) {
-                            actor.rollPericia(actionId);
-                        } else {
+                        if (!await this._executeFirstAvailable(actor, ['rollPericia', 'setupPericia'], [actionId])) {
+                            if (game.tormenta20?.rollSkill) {
+                                await game.tormenta20.rollSkill(actor, actionId);
+                            } else {
+                                ui.notifications?.warn(`Não foi possível rolar a perícia ${actionId}.`);
+                            }
                             Logger.error("Could not find skill roll method on actor.");
+                        }
+                        break;
+                    case 'condition':
+                        if (!await this._executeFirstAvailable(actor, ['toggleStatusEffect', 'toggleEffect'], [actionId])) {
+                            Logger.error(`Could not toggle condition ${actionId}.`);
                         }
                         break;
                     case 'item':
                         const item = actor.items.get(actionId);
                         if (item) {
                             if (item.use) {
-                                item.use();
+                                await item.use();
                             } else if (item.roll) {
-                                item.roll();
+                                await item.roll();
                             } else {
-                                // Fallback to sheet render if no use method
-                                item.sheet.render(true);
+                                await item.sheet.render(true);
                             }
                         } else {
                             Logger.error(`Item ${actionId} not found on actor.`);
@@ -66,6 +72,18 @@ export function getRollHandler(coreModule) {
             } catch (e) {
                 Logger.error("Error executing macro", e);
             }
+        }
+
+        async _executeFirstAvailable(target, methodNames, args = []) {
+            for (const methodName of methodNames) {
+                const method = target?.[methodName];
+                if (typeof method === 'function') {
+                    await method.apply(target, args);
+                    return true;
+                }
+            }
+
+            return false;
         }
     };
 }

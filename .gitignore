@@ -17,3 +17,6 @@ Thumbs.db
 # Dist
 dist/
 module.zip
+
+# User local reference exports
+fvtt-JournalEntry-*.json

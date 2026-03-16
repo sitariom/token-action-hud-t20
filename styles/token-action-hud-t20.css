@@ -1,0 +1,14 @@
+#token-action-hud .tah-actions,
+#token-action-hud .tah-group-body,
+#token-action-hud .tah-groups-container,
+#token-action-hud .tah-submenu-content,
+#token-action-hud .tah-actions-list {
+    max-height: 22rem;
+    overflow-y: auto;
+}
+
+#token-action-hud .tah-action {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}

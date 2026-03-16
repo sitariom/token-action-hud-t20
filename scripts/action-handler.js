@@ -18,6 +18,7 @@ export function getActionHandler(coreModule) {
                 this._buildAttributes(actor);
                 this._buildSkills(actor);
                 this._buildItems(actor);
+                this._buildConditions(actor);
 
                 Logger.info("System actions built successfully.");
             } catch (e) {
@@ -32,13 +33,14 @@ export function getActionHandler(coreModule) {
 
                 const actions = Object.entries(attributes).map(([key, attr]) => {
                     return {
-                        id: key,
-                        name: game.i18n.localize(`T20.Atributos.${key}`) || key.toUpperCase(),
+                        id: `attribute_${key}`,
+                        name: this._getAttributeName(key, attr),
                         encodedValue: ['attribute', key].join('|'),
-                        info1: { text: attr.value }
+                        info1: { text: attr?.value ?? attr?.total ?? '-' }
                     };
                 });
 
+                actions.sort((a, b) => a.name.localeCompare(b.name));
                 this.addActions(actions, { id: 'attributes', type: 'system' });
             } catch (e) {
                 Logger.error("Error building attributes", e);
@@ -52,13 +54,14 @@ export function getActionHandler(coreModule) {
 
                 const actions = Object.entries(skills).map(([key, skill]) => {
                     return {
-                        id: key,
-                        name: game.i18n.localize(`T20.Pericias.${key}`) || key,
+                        id: `skill_${key}`,
+                        name: this._getSkillName(key, skill),
                         encodedValue: ['skill', key].join('|'),
-                        info1: { text: skill.total }
+                        info1: { text: skill?.value ?? skill?.total ?? '-' }
                     };
                 });
 
+                actions.sort((a, b) => a.name.localeCompare(b.name));
                 this.addActions(actions, { id: 'skills', type: 'system' });
             } catch (e) {
                 Logger.error("Error building skills", e);
@@ -67,34 +70,136 @@ export function getActionHandler(coreModule) {
 
         _buildItems(actor) {
             try {
-                const weapons = actor.items.filter(i => i.type === 'arma');
-                this._addActionsToGroup(weapons, 'weapons');
+                const items = actor?.items?.contents ?? Array.from(actor?.items ?? []);
+                const weapons = items.filter(i => i.type === 'arma');
+                this._addActionsToGroup(weapons, 'weapons', i => this._getItemAction(i));
 
-                const equipment = actor.items.filter(i => i.type === 'equipamento');
-                this._addActionsToGroup(equipment, 'equipment');
+                const equipment = items.filter(i => i.type === 'equipamento');
+                this._addActionsToGroup(equipment, 'equipment', i => this._getItemAction(i));
 
-                const consumables = actor.items.filter(i => i.type === 'consumivel');
-                this._addActionsToGroup(consumables, 'consumables');
+                const consumables = items.filter(i => i.type === 'consumivel');
+                this._addActionsToGroup(consumables, 'consumables', i => this._getItemAction(i));
 
-                const spells = actor.items.filter(i => i.type === 'magia');
-                this._addActionsToGroup(spells, 'spells');
+                const spells = items.filter(i => i.type === 'magia');
+                this._addActionsToGroup(spells, 'spells', i => this._getSpellAction(i));
 
-                const powers = actor.items.filter(i => i.type === 'poder');
-                this._addActionsToGroup(powers, 'powers');
+                const powers = items.filter(i => i.type === 'poder');
+                this._addActionsToGroup(powers, 'powers', i => this._getPowerAction(i));
             } catch (e) {
                 Logger.error("Error building items", e);
             }
         }
 
-        _addActionsToGroup(items, groupId) {
+        _buildConditions(actor) {
+            try {
+                const conditions = CONFIG.statusEffects;
+                if (!conditions?.length) return;
+
+                const actions = conditions.map(condition => {
+                    const id = condition.id ?? condition.label;
+                    const localizedLabel = game.i18n.localize(condition.label);
+
+                    return {
+                        id: `condition_${id}`,
+                        name: localizedLabel === condition.label ? String(id) : localizedLabel,
+                        encodedValue: ['condition', id].join('|'),
+                        img: condition.icon
+                    };
+                });
+
+                actions.sort((a, b) => a.name.localeCompare(b.name));
+                this.addActions(actions, { id: 'conditions', type: 'system' });
+            } catch (e) {
+                Logger.error("Error building conditions", e);
+            }
+        }
+
+        _addActionsToGroup(items, groupId, mapAction) {
             if (!items.length) return;
-            const actions = items.map(i => ({
-                id: i.id,
-                name: i.name,
-                encodedValue: ['item', i.id].join('|'),
-                img: i.img
-            }));
+
+            const sortedItems = [...items].sort((a, b) => {
+                if (groupId === 'spells') {
+                    const circleA = Number(a?.system?.circulo ?? 0);
+                    const circleB = Number(b?.system?.circulo ?? 0);
+                    if (circleA !== circleB) return circleA - circleB;
+                }
+                return String(a?.name ?? '').localeCompare(String(b?.name ?? ''));
+            });
+
+            const actions = sortedItems.map(item => mapAction(item));
             this.addActions(actions, { id: groupId, type: 'system' });
+        }
+
+        _getItemAction(item) {
+            return {
+                id: item.id,
+                name: item.name,
+                encodedValue: ['item', item.id].join('|'),
+                img: item.img
+            };
+        }
+
+        _getSpellAction(item) {
+            return {
+                id: item.id,
+                name: item.name,
+                encodedValue: ['item', item.id].join('|'),
+                img: item.img,
+                info1: { text: this._getSpellType(item) }
+            };
+        }
+
+        _getPowerAction(item) {
+            return {
+                id: item.id,
+                name: item.name,
+                encodedValue: ['item', item.id].join('|'),
+                img: item.img,
+                info1: { text: this._getPowerType(item) }
+            };
+        }
+
+        _getAttributeName(key, attribute) {
+            if (attribute?.label) return String(attribute.label);
+            if (CONFIG.T20?.atributos?.[key]) return String(CONFIG.T20.atributos[key]);
+
+            const localized = game.i18n.localize(`T20.Atributos.${key}`);
+            if (localized !== `T20.Atributos.${key}`) return localized;
+
+            const fallbackMap = {
+                for: 'Força',
+                des: 'Destreza',
+                con: 'Constituição',
+                int: 'Inteligência',
+                sab: 'Sabedoria',
+                car: 'Carisma'
+            };
+
+            return fallbackMap[key] ?? String(key).toUpperCase();
+        }
+
+        _getSkillName(key, skill) {
+            if (skill?.label) return String(skill.label);
+            if (CONFIG.T20?.pericias?.[key]) return String(CONFIG.T20.pericias[key]);
+
+            const localized = game.i18n.localize(`T20.Pericias.${key}`);
+            if (localized !== `T20.Pericias.${key}`) return localized;
+
+            return String(key).charAt(0).toUpperCase() + String(key).slice(1);
+        }
+
+        _getSpellType(item) {
+            const circle = Number(item?.system?.circulo ?? 0);
+            const school = item?.system?.escola;
+            const schoolLabel = school ? String(school) : '';
+
+            if (schoolLabel) return `Círculo ${circle} • ${schoolLabel}`;
+            return `Círculo ${circle}`;
+        }
+
+        _getPowerType(item) {
+            const type = item?.system?.tipo ?? item?.system?.categoria ?? item?.type;
+            return String(type ?? 'Poder');
         }
     };
 }
