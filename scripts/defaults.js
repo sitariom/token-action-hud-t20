@@ -19,7 +19,8 @@ export const DEFAULTS = {
             groups: [
                 { nestId: 'inventory_weapons', id: 'weapons', name: 'T20.Armas', type: 'system' },
                 { nestId: 'inventory_equipment', id: 'equipment', name: 'T20.Equipamento', type: 'system' },
-                { nestId: 'inventory_consumables', id: 'consumables', name: 'T20.Consumiveis', type: 'system' }
+                { nestId: 'inventory_consumables', id: 'consumables', name: 'T20.Consumiveis', type: 'system' },
+                { nestId: 'inventory_treasures', id: 'treasures', name: 'T20.Tesouros', type: 'system' }
             ]
         },
         {
@@ -47,6 +48,7 @@ export const DEFAULTS = {
         { id: 'weapons', name: 'T20.Armas', type: 'system' },
         { id: 'equipment', name: 'T20.Equipamento', type: 'system' },
         { id: 'consumables', name: 'T20.Consumiveis', type: 'system' },
+        { id: 'treasures', name: 'T20.Tesouros', type: 'system' },
         { id: 'spells', name: 'T20.Magias', type: 'system' },
         { id: 'powers', name: 'T20.Poderes', type: 'system' },
         { id: 'conditions', name: 'T20.Condicoes', type: 'system' }

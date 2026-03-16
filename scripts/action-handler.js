@@ -80,6 +80,9 @@ export function getActionHandler(coreModule) {
                 const consumables = items.filter(i => i.type === 'consumivel');
                 this._addActionsToGroup(consumables, 'consumables', i => this._getItemAction(i));
 
+                const treasures = items.filter(i => ['tesouro', 'treasure', 'item'].includes(i.type));
+                this._addActionsToGroup(treasures, 'treasures', i => this._getItemAction(i));
+
                 const spells = items.filter(i => i.type === 'magia');
                 this._addActionsToGroup(spells, 'spells', i => this._getSpellAction(i));
 
@@ -119,8 +122,8 @@ export function getActionHandler(coreModule) {
 
             const sortedItems = [...items].sort((a, b) => {
                 if (groupId === 'spells') {
-                    const circleA = Number(a?.system?.circulo ?? 0);
-                    const circleB = Number(b?.system?.circulo ?? 0);
+                    const circleA = this._getSpellCircle(a);
+                    const circleB = this._getSpellCircle(b);
                     if (circleA !== circleB) return circleA - circleB;
                 }
                 return String(a?.name ?? '').localeCompare(String(b?.name ?? ''));
@@ -189,12 +192,42 @@ export function getActionHandler(coreModule) {
         }
 
         _getSpellType(item) {
-            const circle = Number(item?.system?.circulo ?? 0);
+            const circle = this._getSpellCircle(item);
             const school = item?.system?.escola;
             const schoolLabel = school ? String(school) : '';
 
             if (schoolLabel) return `Círculo ${circle} • ${schoolLabel}`;
             return `Círculo ${circle}`;
+        }
+
+        _getSpellCircle(item) {
+            const rawCircle =
+                item?.system?.circulo ??
+                item?.system?.circle ??
+                item?.system?.nivel ??
+                item?.system?.level;
+
+            if (typeof rawCircle === 'number' && Number.isFinite(rawCircle)) {
+                return rawCircle;
+            }
+
+            if (typeof rawCircle === 'string') {
+                const match = rawCircle.match(/\d+/);
+                if (match) return Number(match[0]);
+            }
+
+            if (rawCircle && typeof rawCircle === 'object') {
+                const candidates = [rawCircle.value, rawCircle.total, rawCircle.current, rawCircle.base];
+                for (const candidate of candidates) {
+                    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
+                    if (typeof candidate === 'string') {
+                        const match = candidate.match(/\d+/);
+                        if (match) return Number(match[0]);
+                    }
+                }
+            }
+
+            return 0;
         }
 
         _getPowerType(item) {
