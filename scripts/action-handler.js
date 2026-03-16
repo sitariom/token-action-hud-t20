@@ -18,7 +18,7 @@ export function getActionHandler(coreModule) {
                 this._buildAttributes(actor);
                 this._buildSkills(actor);
                 this._buildItems(actor);
-                this._buildConditions(actor); // New method for conditions
+                this._buildConditions(actor);
 
                 Logger.info("System actions built successfully.");
             } catch (e) {
@@ -31,10 +31,21 @@ export function getActionHandler(coreModule) {
                 const attributes = actor.system.atributos;
                 if (!attributes) return;
 
+                const attrMap = {
+                    'for': 'Força',
+                    'des': 'Destreza',
+                    'con': 'Constituição',
+                    'int': 'Inteligência',
+                    'sab': 'Sabedoria',
+                    'car': 'Carisma'
+                };
+
                 const actions = Object.entries(attributes).map(([key, attr]) => {
-                    // Try to get the label from CONFIG if available, otherwise fallback to key
-                    const label = game.i18n.localize(`T20.Atributos.${key}`) || 
-                                  (CONFIG.T20?.atributos ? CONFIG.T20.atributos[key] : key.toUpperCase());
+                    // Tenta tradução oficial, fallback para mapa manual, fallback para chave capitalizada
+                    let label = game.i18n.localize(`T20.Atributos.${key}`);
+                    if (label.startsWith("T20.Atributos.")) { // Translation failed
+                        label = attrMap[key] || key.toUpperCase();
+                    }
                     
                     return {
                         id: key,
@@ -56,9 +67,16 @@ export function getActionHandler(coreModule) {
                 if (!skills) return;
 
                 const actions = Object.entries(skills).map(([key, skill]) => {
-                    // Try to get the label from CONFIG if available
-                    const label = game.i18n.localize(`T20.Pericias.${key}`) || 
-                                  (CONFIG.T20?.pericias ? CONFIG.T20.pericias[key] : key);
+                    let label = game.i18n.localize(`T20.Pericias.${key}`);
+                    if (label.startsWith("T20.Pericias.")) {
+                         // Try CONFIG fallback if available
+                         if (CONFIG.T20?.pericias && CONFIG.T20.pericias[key]) {
+                             label = CONFIG.T20.pericias[key];
+                         } else {
+                             // Capitalize first letter as last resort
+                             label = key.charAt(0).toUpperCase() + key.slice(1);
+                         }
+                    }
 
                     return {
                         id: key,
@@ -76,44 +94,45 @@ export function getActionHandler(coreModule) {
 
         _buildItems(actor) {
             try {
+                const items = actor.items; // Cache items access
+                
                 // Weapons
-                const weapons = actor.items.filter(i => i.type === 'arma');
+                const weapons = items.filter(i => i.type === 'arma');
                 this._addActionsToGroup(weapons, 'weapons');
 
                 // Equipment
-                const equipment = actor.items.filter(i => i.type === 'equipamento');
+                const equipment = items.filter(i => i.type === 'equipamento');
                 this._addActionsToGroup(equipment, 'equipment');
 
                 // Consumables
-                const consumables = actor.items.filter(i => i.type === 'consumivel');
+                const consumables = items.filter(i => i.type === 'consumivel');
                 this._addActionsToGroup(consumables, 'consumables');
 
-                // Spells - Categorized by Circle
-                const spells = actor.items.filter(i => i.type === 'magia');
+                // Spells
+                const spells = items.filter(i => i.type === 'magia');
                 spells.forEach(spell => {
-                    const circle = spell.system.circulo || '0'; // Default to 0 or check structure
-                    const groupId = `spells_${circle}`;
-                    // Verify if group exists in defaults, otherwise put in spells_1 or create dynamic?
-                    // For now, we assume 1-5 circles.
-                    if (['1', '2', '3', '4', '5'].includes(String(circle))) {
-                         this._addActionsToGroup([spell], groupId);
-                    } else {
-                         // Fallback for 0 or undefined
-                         this._addActionsToGroup([spell], 'spells_1');
+                    const circle = String(spell.system.circulo || '1'); // Force string and default to 1
+                    // Ensure circle is 1-5, otherwise clamp or default
+                    let groupId = `spells_${circle}`;
+                    if (!['1', '2', '3', '4', '5'].includes(circle)) {
+                        groupId = 'spells_1';
                     }
+                    this._addActionsToGroup([spell], groupId);
                 });
 
-                // Powers - Categorized by Type
-                const powers = actor.items.filter(i => i.type === 'poder');
+                // Powers
+                const powers = items.filter(i => i.type === 'poder');
                 powers.forEach(power => {
-                    const subtype = power.system.subtipo || 'other'; // classe, geral, origem, tormenta, destino
-                    let groupId = 'powers_other';
+                    const subtype = power.system.subtipo || 'other'; 
+                    // Normalize subtype to lowercase for comparison
+                    const subtypeLower = String(subtype).toLowerCase();
                     
-                    if (['classe', 'class'].includes(subtype)) groupId = 'powers_class';
-                    else if (['geral', 'general'].includes(subtype)) groupId = 'powers_general';
-                    else if (['origem', 'origin'].includes(subtype)) groupId = 'powers_origin';
-                    else if (['tormenta'].includes(subtype)) groupId = 'powers_tormenta';
-                    else if (['destino', 'destiny'].includes(subtype)) groupId = 'powers_destiny';
+                    let groupId = 'powers_other';
+                    if (['classe', 'class'].includes(subtypeLower)) groupId = 'powers_class';
+                    else if (['geral', 'general'].includes(subtypeLower)) groupId = 'powers_general';
+                    else if (['origem', 'origin'].includes(subtypeLower)) groupId = 'powers_origin';
+                    else if (['tormenta'].includes(subtypeLower)) groupId = 'powers_tormenta';
+                    else if (['destino', 'destiny'].includes(subtypeLower)) groupId = 'powers_destiny';
 
                     this._addActionsToGroup([power], groupId);
                 });
@@ -125,13 +144,20 @@ export function getActionHandler(coreModule) {
         
         _buildConditions(actor) {
             try {
+                // Foundry V11+ usually populates CONFIG.statusEffects
                 const conditions = CONFIG.statusEffects || [];
-                if (!conditions.length) return;
+                
+                if (!conditions.length) {
+                    Logger.info("No conditions found in CONFIG.statusEffects.");
+                    return;
+                }
 
                 const actions = conditions.map(condition => {
                     const id = condition.id;
-                    const name = game.i18n.localize(condition.label);
-                    // Check if actor has this condition
+                    const name = game.i18n.localize(condition.label); // localize label
+                    
+                    // Check active effects on actor
+                    // V11: actor.effects.some(e => e.statuses.has(id))
                     const isActive = actor.effects.some(e => e.statuses.has(id));
                     
                     return {
@@ -150,13 +176,16 @@ export function getActionHandler(coreModule) {
         }
 
         _addActionsToGroup(items, groupId) {
-            if (!items.length) return;
+            if (!items || !items.length) return;
+            
             const actions = items.map(i => ({
                 id: i.id,
                 name: i.name,
                 encodedValue: ['item', i.id].join('|'),
                 img: i.img
             }));
+            
+            // Check if group exists before adding? HUD Core handles it, but good to be safe.
             this.addActions(actions, { id: groupId, type: 'system' });
         }
     };
