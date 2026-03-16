@@ -41,20 +41,21 @@ export function getActionHandler(coreModule) {
                 };
 
                 const actions = Object.entries(attributes).map(([key, attr]) => {
-                    // Tenta tradução oficial, fallback para mapa manual, fallback para chave capitalizada
                     let label = game.i18n.localize(`T20.Atributos.${key}`);
-                    if (label.startsWith("T20.Atributos.")) { // Translation failed
+                    if (label.startsWith("T20.Atributos.")) { 
                         label = attrMap[key] || key.toUpperCase();
                     }
                     
                     return {
-                        id: key,
+                        id: `attribute_${key}`, // Unique ID for the action
                         name: label,
                         encodedValue: ['attribute', key].join('|'),
-                        info1: { text: attr.value }
+                        info1: { text: attr.value },
+                        listName: `Atributo: ${label}`
                     };
                 });
 
+                // Add to both the main group and the specific list
                 this.addActions(actions, { id: 'attributes', type: 'system' });
             } catch (e) {
                 Logger.error("Error building attributes", e);
@@ -69,20 +70,19 @@ export function getActionHandler(coreModule) {
                 const actions = Object.entries(skills).map(([key, skill]) => {
                     let label = game.i18n.localize(`T20.Pericias.${key}`);
                     if (label.startsWith("T20.Pericias.")) {
-                         // Try CONFIG fallback if available
                          if (CONFIG.T20?.pericias && CONFIG.T20.pericias[key]) {
                              label = CONFIG.T20.pericias[key];
                          } else {
-                             // Capitalize first letter as last resort
                              label = key.charAt(0).toUpperCase() + key.slice(1);
                          }
                     }
 
                     return {
-                        id: key,
+                        id: `skill_${key}`, // Unique ID
                         name: label,
                         encodedValue: ['skill', key].join('|'),
-                        info1: { text: skill.total }
+                        info1: { text: skill.total },
+                        listName: `Perícia: ${label}`
                     };
                 });
 
@@ -94,7 +94,8 @@ export function getActionHandler(coreModule) {
 
         _buildItems(actor) {
             try {
-                const items = actor.items; // Cache items access
+                // In Foundry V11/V12, items might be a Map or Collection. Convert to array safely.
+                const items = actor.items.contents || Array.from(actor.items); 
                 
                 // Weapons
                 const weapons = items.filter(i => i.type === 'arma');
@@ -111,8 +112,7 @@ export function getActionHandler(coreModule) {
                 // Spells
                 const spells = items.filter(i => i.type === 'magia');
                 spells.forEach(spell => {
-                    const circle = String(spell.system.circulo || '1'); // Force string and default to 1
-                    // Ensure circle is 1-5, otherwise clamp or default
+                    const circle = String(spell.system?.circulo || '1'); 
                     let groupId = `spells_${circle}`;
                     if (!['1', '2', '3', '4', '5'].includes(circle)) {
                         groupId = 'spells_1';
@@ -123,8 +123,7 @@ export function getActionHandler(coreModule) {
                 // Powers
                 const powers = items.filter(i => i.type === 'poder');
                 powers.forEach(power => {
-                    const subtype = power.system.subtipo || 'other'; 
-                    // Normalize subtype to lowercase for comparison
+                    const subtype = power.system?.subtipo || 'other'; 
                     const subtypeLower = String(subtype).toLowerCase();
                     
                     let groupId = 'powers_other';
@@ -144,7 +143,6 @@ export function getActionHandler(coreModule) {
         
         _buildConditions(actor) {
             try {
-                // Foundry V11+ usually populates CONFIG.statusEffects
                 const conditions = CONFIG.statusEffects || [];
                 
                 if (!conditions.length) {
@@ -154,18 +152,22 @@ export function getActionHandler(coreModule) {
 
                 const actions = conditions.map(condition => {
                     const id = condition.id;
-                    const name = game.i18n.localize(condition.label); // localize label
+                    const name = game.i18n.localize(condition.label || condition.name); 
                     
-                    // Check active effects on actor
-                    // V11: actor.effects.some(e => e.statuses.has(id))
-                    const isActive = actor.effects.some(e => e.statuses.has(id));
+                    // Support for V11+ effects handling
+                    const isActive = actor.effects.some(e => 
+                        e.statuses?.has(id) || 
+                        e.flags?.core?.statusId === id ||
+                        e.name === name
+                    );
                     
                     return {
-                        id: id,
+                        id: `condition_${id}`,
                         name: name,
                         encodedValue: ['condition', id].join('|'),
                         img: condition.icon,
-                        cssClass: isActive ? 'active' : ''
+                        cssClass: isActive ? 'active' : '',
+                        listName: `Condição: ${name}`
                     };
                 });
                 
@@ -179,13 +181,13 @@ export function getActionHandler(coreModule) {
             if (!items || !items.length) return;
             
             const actions = items.map(i => ({
-                id: i.id,
+                id: `item_${i.id}`,
                 name: i.name,
                 encodedValue: ['item', i.id].join('|'),
-                img: i.img
+                img: i.img,
+                listName: `Item: ${i.name}`
             }));
             
-            // Check if group exists before adding? HUD Core handles it, but good to be safe.
             this.addActions(actions, { id: groupId, type: 'system' });
         }
     };
