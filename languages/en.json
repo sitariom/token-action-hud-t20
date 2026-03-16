@@ -1,0 +1,8 @@
+{
+  "tokenActionHud.t20.attribute": "Attribute",
+  "tokenActionHud.t20.skill": "Skill",
+  "tokenActionHud.t20.attack": "Attack",
+  "tokenActionHud.t20.spell": "Spell",
+  "tokenActionHud.t20.power": "Power",
+  "tokenActionHud.t20.item": "Item"
+}
