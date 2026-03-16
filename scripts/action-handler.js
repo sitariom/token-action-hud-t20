@@ -18,6 +18,7 @@ export function getActionHandler(coreModule) {
                 this._buildAttributes(actor);
                 this._buildSkills(actor);
                 this._buildItems(actor);
+                this._buildConditions(actor);
 
                 Logger.info("System actions built successfully.");
             } catch (e) {
@@ -27,6 +28,7 @@ export function getActionHandler(coreModule) {
 
         _buildAttributes(actor) {
             try {
+                // Baseado no JSON fornecido: atributos.for.value, atributos.des.value, etc.
                 const attributes = actor.system.atributos;
                 if (!attributes) return;
 
@@ -41,15 +43,16 @@ export function getActionHandler(coreModule) {
 
                 const actions = Object.entries(attributes).map(([key, attr]) => {
                     let label = game.i18n.localize(`T20.Atributos.${key}`);
-                    if (label.startsWith("T20.Atributos.")) { // Translation failed
+                    if (label.startsWith("T20.Atributos.")) { 
                         label = attrMap[key] || key.toUpperCase();
                     }
                     
                     return {
-                        id: key,
+                        id: `attribute_${key}`,
                         name: label,
                         encodedValue: ['attribute', key].join('|'),
-                        info1: { text: attr.value }
+                        info1: { text: attr.value },
+                        listName: `Atributo: ${label}`
                     };
                 });
 
@@ -61,6 +64,7 @@ export function getActionHandler(coreModule) {
 
         _buildSkills(actor) {
             try {
+                // Baseado no JSON fornecido: pericias.acro.total, pericias.ades.total, etc.
                 const skills = actor.system.pericias;
                 if (!skills) return;
 
@@ -75,10 +79,11 @@ export function getActionHandler(coreModule) {
                     }
 
                     return {
-                        id: key,
+                        id: `skill_${key}`,
                         name: label,
                         encodedValue: ['skill', key].join('|'),
-                        info1: { text: skill.total }
+                        info1: { text: skill.total },
+                        listName: `Perícia: ${label}`
                     };
                 });
 
@@ -90,35 +95,83 @@ export function getActionHandler(coreModule) {
 
         _buildItems(actor) {
             try {
-                // Compatibility for V11+ where items might be a Collection
+                // Foundry V11+ Collection fix
                 const items = actor.items.contents || Array.from(actor.items);
-
+                
+                // Categorias
                 const weapons = items.filter(i => i.type === 'arma');
-                this._addActionsToGroup(weapons, 'weapons');
-
                 const equipment = items.filter(i => i.type === 'equipamento');
-                this._addActionsToGroup(equipment, 'equipment');
-
                 const consumables = items.filter(i => i.type === 'consumivel');
+                const spells = items.filter(i => i.type === 'magia');
+                const powers = items.filter(i => i.type === 'poder');
+
+                this._addActionsToGroup(weapons, 'weapons');
+                this._addActionsToGroup(equipment, 'equipment');
                 this._addActionsToGroup(consumables, 'consumables');
 
-                const spells = items.filter(i => i.type === 'magia');
-                this._addActionsToGroup(spells, 'spells');
+                // Magias separadas por Círculo
+                spells.forEach(spell => {
+                    const circle = String(spell.system?.circulo || '1');
+                    let groupId = `spells_${circle}`;
+                    if (!['1', '2', '3', '4', '5'].includes(circle)) groupId = 'spells_1';
+                    this._addActionsToGroup([spell], groupId);
+                });
 
-                const powers = items.filter(i => i.type === 'poder');
-                this._addActionsToGroup(powers, 'powers');
+                // Poderes separados por Subtipo
+                powers.forEach(power => {
+                    const subtype = String(power.system?.subtipo || 'other').toLowerCase();
+                    let groupId = 'powers_other';
+                    if (['classe', 'class'].includes(subtype)) groupId = 'powers_class';
+                    else if (['geral', 'general'].includes(subtype)) groupId = 'powers_general';
+                    else if (['origem', 'origin'].includes(subtype)) groupId = 'powers_origin';
+                    else if (['tormenta'].includes(subtype)) groupId = 'powers_tormenta';
+                    else if (['destino', 'destiny'].includes(subtype)) groupId = 'powers_destiny';
+                    this._addActionsToGroup([power], groupId);
+                });
+
             } catch (e) {
                 Logger.error("Error building items", e);
             }
         }
+        
+        _buildConditions(actor) {
+            try {
+                const conditions = CONFIG.statusEffects || [];
+                if (!conditions.length) return;
+
+                const actions = conditions.map(condition => {
+                    const id = condition.id;
+                    const name = game.i18n.localize(condition.label || condition.name); 
+                    
+                    const isActive = actor.effects.some(e => 
+                        e.statuses?.has(id) || 
+                        e.flags?.core?.statusId === id
+                    );
+                    
+                    return {
+                        id: `condition_${id}`,
+                        name: name,
+                        encodedValue: ['condition', id].join('|'),
+                        img: condition.icon,
+                        cssClass: isActive ? 'active' : '',
+                        listName: `Condição: ${name}`
+                    };
+                });
+                
+                this.addActions(actions, { id: 'conditions', type: 'system' });
+            } catch (e) {
+                Logger.error("Error building conditions", e);
+            }
+        }
 
         _addActionsToGroup(items, groupId) {
-            if (!items.length) return;
+            if (!items || !items.length) return;
             const actions = items.map(i => ({
-                id: i.id,
+                id: `item_${i.id}`,
                 name: i.name,
                 encodedValue: ['item', i.id].join('|'),
-                img: i.img
+                img: i.img,
+                listName: `Item: ${i.name}`
             }));
             this.addActions(actions, { id: groupId, type: 'system' });
         }

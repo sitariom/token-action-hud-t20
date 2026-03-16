@@ -30,36 +30,51 @@ export function getRollHandler(coreModule) {
             try {
                 switch (actionType) {
                     case 'attribute':
-                        if (actor.setupAtributo) {
-                            actor.setupAtributo(actionId);
-                        } else if (actor.rollAtributo) {
-                            actor.rollAtributo(actionId);
+                        // Tenta métodos conhecidos de rolagem do T20
+                        if (typeof actor.rollAtributo === 'function') {
+                            await actor.rollAtributo(actionId);
+                        } else if (typeof actor.setupAtributo === 'function') {
+                            await actor.setupAtributo(actionId);
+                        } else if (game.tormenta20 && game.tormenta20.rollAttribute) {
+                            // Fallback para API global se existir
+                            game.tormenta20.rollAttribute(actor, actionId);
                         } else {
                             Logger.error("Could not find attribute roll method on actor.");
+                            ui.notifications.warn(`Não foi possível rolar o atributo ${actionId}. Método não encontrado.`);
                         }
                         break;
                     case 'skill':
-                        if (actor.setupPericia) {
-                            actor.setupPericia(actionId);
-                        } else if (actor.rollPericia) {
-                            actor.rollPericia(actionId);
+                        if (typeof actor.rollPericia === 'function') {
+                            await actor.rollPericia(actionId);
+                        } else if (typeof actor.setupPericia === 'function') {
+                            await actor.setupPericia(actionId);
+                        } else if (game.tormenta20 && game.tormenta20.rollSkill) {
+                            game.tormenta20.rollSkill(actor, actionId);
                         } else {
                             Logger.error("Could not find skill roll method on actor.");
+                            ui.notifications.warn(`Não foi possível rolar a perícia ${actionId}. Método não encontrado.`);
                         }
                         break;
                     case 'item':
                         const item = actor.items.get(actionId);
                         if (item) {
-                            if (item.use) {
+                            if (typeof item.use === 'function') {
                                 item.use();
-                            } else if (item.roll) {
+                            } else if (typeof item.roll === 'function') {
                                 item.roll();
                             } else {
-                                // Fallback to sheet render if no use method
                                 item.sheet.render(true);
                             }
                         } else {
                             Logger.error(`Item ${actionId} not found on actor.`);
+                        }
+                        break;
+                    case 'condition':
+                        const token = canvas.tokens.get(actor.token?.id) || canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
+                        if (token) {
+                            await token.toggleEffect(actionId);
+                        } else if (typeof actor.toggleStatusEffect === 'function') {
+                            await actor.toggleStatusEffect(actionId);
                         }
                         break;
                 }

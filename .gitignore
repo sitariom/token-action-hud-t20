@@ -17,3 +17,7 @@ Thumbs.db
 # Dist
 dist/
 module.zip
+temp_package/
+
+# Local Data
+*.json
